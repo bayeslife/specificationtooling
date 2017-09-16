@@ -34,7 +34,7 @@ function getArrayOfFeatureFolders(dir) {
 }
 
 gulp.task('extract', [], function() {  
-  var featureFolders = getArrayOfFeatureFolders("Features");
+  var featureFolders = getArrayOfFeatureFolders("features");
   var tasks = featureFolders.map(function(featureFolder) {    
     var metadata = {};
     return gulp.src("features/"+featureFolder+"/*.feature")
