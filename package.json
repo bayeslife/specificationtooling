@@ -15,6 +15,16 @@
         "test"
       ],
       "extensions": "ts,json,hbs,feature,js"
+    },
+    "expand": {
+      "patterns": [
+        "gulpfile.js",
+        "src",
+        "features/**/*.feature",
+        "features2/**/*.feature",
+        "test"
+      ],
+      "extensions": "ts,json,hbs,feature,js"
     }
   },
   "scripts": {
@@ -22,7 +32,8 @@
     "compile": "tsc",
     "build2": "tsc && node dist/ts/index.js -d ./features -o build",
     "extract": "gulp extract",
-    "test": "tsc && node dist/index.js -d ./test-features -o build",
+    "expand": "gulp expand",
+    "test": "./node_modules/mocha/bin/mocha",
     "watch": "npm-watch"
   },
   "keywords": [
@@ -46,10 +57,12 @@
     "@types/yargs": "^6.6.0",
     "ansi_up": "^1.3.0",
     "bluebird": "^3.4.6",
+    "cucumber": "^3.0.0",
     "debug": "^2.2.0",
     "gherkin": "^4.1.3",
     "handlebars": "^4.0.5",
     "map-stream": "0.0.7",
+    "mocha": "^3.5.3",
     "read-vinyl-file-stream": "^2.0.3",
     "request": "^2.75.0",
     "stream-to-string": "^1.1.0",

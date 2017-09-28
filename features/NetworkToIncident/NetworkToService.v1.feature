@@ -9,176 +9,167 @@ As a resolver
 I want to have Incidents raised to myself that are raised to the correct resolver team and are only raised once for each root cause
 so that I dont have to waste time modifying multiple Incidents for a single root cause.
 
-@PrimaryComponentFailureNetworkEvent
-@ServiceInformationNotAvailable
-@CreateServiceEvent
+@FailureComponent:Primary
+@PreviousServiceEvent:False
+@ServiceInformation:NotAvailable
+@ServiceEvent:NotCreated
+@ImpactedCustomers:None
 Scenario Outline: A failing primary device with no associated avaialable service information will create an new Service Event
-Given A router <ServiceSpecCharacteristic.Router-HostName> has failed and raised a Network Event that is available in Netcool
-And the network event status is <NetworkEvent.status>
-And Resource To Service API has no corresponding Services
+Given Router [<ServiceSpecCharacteristic.Router-HostName>] has failed and raised a Network Event that is available in Netcool
+And there is no previous Service Event identifed for this resource
+And the network event status is [<NetworkEvent.status>]
+And there is no service information in the Network Event
+And Resource To Service API when invoked with [<ServiceSpecCharacteristic.Router-HostName>] has no corresponding Services
 When impact server receives this Network Event
-And there is no previous service event identifed for this resource
-Then a service event api is invoked
-And the correlation event guid is generated
-And there is no service information provided
+Then there is no Service Event api invocation
 
 Examples:
-| ResourceSpecCharacteristic.Router-HostName | NetworkEvent.status |
-| Host123                                    | Down                |
+| ServiceSpecCharacteristic.Router-HostName | NetworkEvent.status |
+| Host123                                    | Down               |
 
-@PrimaryComponentFailureNetworkEvent
-@ServiceInformationNotAvailable
-@Flappling
-@UpdateServiceEvent
+@FailureComponent:Primary
+@ServiceInformation:NotAvailable
+@PreviousServiceEvent:False
+@ServiceEvent:Created
+@ImpactedCustomers:Single
+@ImpactedSegment:ReadyGovernment
+Scenario Outline: A newly failing primary components with externally enriched service identified
+Given A failing router [<ServiceSpecCharacteristic.Router-HostName>] has resulted in generation of a network event with status [<NetworkEvent.status>]
+And the Network Event has been previously enriched and has a Service identified as [<CustomerFacingService.Id>]
+And Impact Server has no previous incomplete Service Event for the Network resource
+And the Resource To Service API has an no association from the router to a CFS
+When impact server receives this Network Event
+Then the Service Event api is invoked
+And A service event id is generated
+And the primary service is identified by name [<CustomerFacingService.Id>]
+And the CFS Service status is identified as [<ServiceEvent.status>]
+And the Service Event is associated with [<CustomerFacingService.Id>]
+
+Examples:
+| ServiceSpecCharacteristic.Router-HostName |  NetworkEvent.status | CustomerFacingService.Id | ServiceEvent.status |
+| Host123                                   |  Down                | PIP1                     | Service Down        |
+
+
+@FailureComponent:Primary
+@ServiceInformation:Available
+@PreviousServiceEvent:False
+@ServiceEvent:Created
+@ImpactedCustomers:Single
+Scenario Outline: A newly failing primary components associated with a specific service
+Given A failing router [<ServiceSpecCharacteristic.Router-HostName>] has resulted in generation of a network event with status [<NetworkEvent.status>]
+And Impact Server has no previous incomplete Service Event for the Network resource
+And the Resource To Service API has an association from the router to the CFS [<CustomerFacingService.Id>]
+When impact server receives this Network Event
+Then the Service Event api is invoked
+And A service event id is generated
+And the primary service is identified by name [<CustomerFacingService.Id>]
+And the CFS Service status is identified as [<ServiceEvent.status>]
+And the Service Event is associated with [<CustomerFacingService.Id>]
+
+Examples:
+| ServiceSpecCharacteristic.Router-HostName |  NetworkEvent.status | CustomerFacingService.Id | ServiceEvent.status |
+| Host123                                   |  Down                | LAN1                    | Service Down        |
+| Host456                                   |  Down                | WIFI1                   | Service Down        |
+
+
+@FailureComponent:Primary
+@ServiceInformation:NotAvailable
+@PreviousServiceEvent:True
+@Flapping
+@ServiceEvent:Updated
+@ImpactedCustomers:Single
 Scenario Outline: A flapping primary or secondary device failure event raises no further Service Event
-Given A router <ServiceSpecCharacteristic.Router-HostName> has failed and raised a Network Event that is available in Netcool
-And the network event status is <NetworkEvent.status>
-And Resource To Service API has no corresponding Services
-And a previous event was identified as <ServiceEvent.id> was received within the frequency tolerance from the same device
+Given A router [<ServiceSpecCharacteristic.Router-HostName>] has failed and raised a Network Event that is available in Netcool
+And the network event status is [<NetworkEvent.status>]
+And a previous event was identified as [<ServiceEvent.id>]
+And the Service associated with the ServiceEvent is identified as [<CustomerFacingService.Id>]
 When impact server receives this Network Event
-Then no service event api is invoked
-And the Service Event is updated with count of failing Network Events.
+Then the Resource To Service API is invoked
+And the Service Event api is not invoked
 
 Examples:
-| ResourceSpecCharacteristic.Router-HostName | ServiceEvent.id  | NetworkEvent.status  |
-| Host123                                    | ServiceEvent1234 | Down                 |
+| ServiceSpecCharacteristic.Router-HostName | ServiceEvent.id  | NetworkEvent.status  | CustomerFacingService.Id |
+| Host123                                    | ServiceEvent1234 | Down                | LAN1                     |
 
-@PrimaryComponentFailureNetworkEvent
-@SecondaryComponentFailureNetworkEvent
-@ServiceInformationNotAvailable
-@ServiceInformationAvailable
+@FailureComponent:Primary
+@FailureComponent:Secondary
+@PreviousServiceEvent:True
+@ServiceInformation:NotAvailable
+@ServiceInformation:Available
+@ImpactedCustomers:Single
 Scenario Outline: A network primary device up event results in an invocation of the Service Event API after the tolerance period
-Given A router <ServiceSpecCharacteristic.Router-HostName> has generated a resource up status identified as <NetworkEvent.status>
-And a new Network Event that is available in Netcool
-And Resource To Service API has no an association to services
+Given A router [<ServiceSpecCharacteristic.Router-HostName>] has generated a resource up status identified as [<NetworkEvent.status>]
+And a new or updated Network Event is available in Netcool
+And Resource To Service API has an association to a CFS identified as [<CustomerFacingService.Id>]
 And Impact Server previously generated a Service Event identified as <ServiceEvent.id>
 And there have been no subsequent Network events for a period of the Configured Service Event Frequency Tolerance
 When the Configured Service Event Frequency Tolerance period is exceeded
 Then the Service Event api is invoked
 And the Service Event id is <ServiceEvent.id>
 And the Service Up status is identified as <ServiceEvent.status>
-And the ServiceEvent is considered complete
+And the ServiceEvent is completed
 
 Examples:
-| ResourceSpecCharacteristic.Router-HostName | ResourceSpecCharacteristic.Router-Type |  NetworkEvent.status | ServiceEvent.id| ServiceEvent.status |
-| Host123                                    | Huawei  HG659                          |  Up                  | ServiceEvent123| Service Up          |
+| ServiceSpecCharacteristic.Router-HostName | CustomerFacingService.Id |  NetworkEvent.status | ServiceEvent.id| ServiceEvent.status |
+| Host123                                   | LAN1                     |  Up                  | ServiceEvent123| Service Up          |
 
 
 
-@SecondaryComponentFailureNetworkEvent
-@ServiceInformationNotAvailable
-@CreateServiceEvent
-Scenario Outline: A failing secondary device with no associated Service will create a duplicate Incident
-Given A router <ServiceSpecCharacteristic.Router-HostName> has failed and raised a Network Event that is available in Netcool
-And the network event status is <NetworkEvent.status>
-And Resource To Service API has no corresponding Services
-When impact server receives this Network Event
-And there is no previous service event identifed for this resource
-Then a service event api is invoked
-And the correlation event guid is generated
-And there is no service information provided
-
-
-@PrimaryComponentFailureNetworkEvent
-@ServiceInformationAvailable
-@CreateServiceEvent
-Scenario Outline: A newly failing primary compoennts associated with a specific customer and service
-Given A router <ServiceSpecCharacteristic.Router-HostName> has generated a <NetworkEvent.status> and raised a Network Event that is available in Netcool
-And Resource To Service API has an association from the router to the CFS <CustomerFacingService.Id> and customer <Customer.crmId>
-And Impact Server has no previous incomplete Service Event for the Network resource
-When impact server receives this Network Event
-Then the Service Event api is invoked
-And the service event id is generated
-And the primary service is identified by name <CustomerFacingService.Id>
-And the crmId is identified as <Customer.crmId>
-And the CFS Service status is identified as <ServiceEvent.status>
+@FailureComponent:Primary
+@PreviousServiceEvent:False
+@ServiceInformation:Available
+@ImpactedCustomers:Multiple
+@ServiceEvent:Created
+Scenario Outline: A failing device associated with more than one than one CFS
+Given A router [<ServiceSpecCharacteristic.Router-HostName>] has failed and raised a Network Event that is available in Netcool
+And Resource To Service API has an association from the router to a list of CFS identified as <CustomerFacingService.Id>
+When Impact Server receives this Network Event
+And identifies the need for new Service Events
+Then the Service Event api is invoked once
+And the Service Events primary service is identified list of [<CustomerFacingService.Id>]
+And the Service Event is updated to reflect the associate to the list of CFS identified as [<CustomerFacingService.Id>]
 
 Examples:
-| ResourceSpecCharacteristic.Router-HostName | ResourceSpecCharacteristic.Router-Type |  NetworkEvent.status | CustomerFacingService.Id | Customer.crmId | ServiceEvent.status |
-| Host123                                    | Huawei  HG659                          |  Down                | LAN1                     | Customer1      | Service Down        |
-| Host456                                    | Ruckus ZoneFlex H500 AP                |  Down                | WIFI1                    | Customer2      | Service Down        |
+| ServiceSpecCharacteristic.Router-HostName | CustomerFacingService.Id |
+| Host123                                   | LAN1,LAN2                |
 
-
-
-@SecondaryComponentFailureNetworkEvent
-@ServiceInformationAvailable
-@UpdateServiceEvent
-Scenario Outline: A failing secondary component with available associated Service information
-Given A switch providing the LAN has failed and raised a Network Event
-And that is available in Netcool and associated with service event <ServiceEvent.id>
-And a router <ServiceSpecCharacteristic.Router-HostName> has previously failed and raised a Network Event that is available in Netcool
-And the network event status is <NetworkEvent.status>
-And Resource To Service API has corresponding Services which are recorded as a RFS related to the router and and RFS related to the switch <RFS.Switch-SwitchLan1>
+@FailureComponent:Secondary
+@ServiceInformation:Available
+@PreviousServiceEvent:True
+@ServiceEvent:Updated
+@ImpactedCustomers:Single
+Scenario Outline: A failing secondary component with available associated service information
+Given A switch providing the LAN has raised a Network Event
+And that is available in Netcool and associated with service event [<ServiceEvent.id>]
+And a router has previously failed and raised a Network Event that is available in Netcool
+And the ServiceEvent has been associated with CFS list identified as [<CustomerFacingService.Id>]
+And the network event status is [<NetworkEvent.status>]
+And Resource To Service API has corresponding Services associated with the switch of [<CustomerFacingService.Id overlapping>]
 When impact server receives this Network Event
 And retrieves service information from the Resource To Service API
 And because one of the services overlaps
 Then no service event api is invoked
-And the service event is invoked.
-
-
-@PrimaryComponentFailureNetworkEvent
-@SecondaryComponentFailureNetworkEvent
-@ServiceInformationAvailable
-@MultipleCustomers
-@CreateServiceEvent
-Scenario Outline: A failing device associated with more than one customer and single service
-Given A router <ServiceSpecCharacteristic.Router-HostName> has failed and raised a Network Event that is available in Netcool
-And Resource To Service API has an association from the router to the RFS <ResourceFacingService.Id> to customer <Customer.crmId Cust1> and separately to <Customer.crmId CustN>
-When Impact Server receives this Network Event
-And identifies the need for new Service Events
-Then the Service Event api is invoked once
-And the Service Events primary service is identified by name <ResourceFacingService.Id>
-And service is associated to <Customer.crmId Cust1>
-And the another is assoicated to <Customer.crmId CustN>
+And the ServiceEvent is updated to reflect the union of [<CustomerFacingService.Id>] and [<CustomerFacingService.Id overlapping>]
 
 Examples:
-| ResourceSpecCharacteristic.Router-HostName | ResourceSpecCharacteristic.Router-Type |  ResourceFacingService.Id | Customer.crmId Cust1 | Customer.crmId CustN |
-| Host123                                    | Huawei  HG659                          |  Router1                  | Customer1            | CustomerN             |
+| ServiceEvent.Id | ServiceSpecCharacteristic.Switch-HostName | CustomerFacingService.Id | CustomerFacingService.Id overlapping | NetworkEvent.status |
+| ServiceEvent123 | Switch123                                 | LAN1,LAN2                | LAN2,LAN3                            | Down                |
 
 
-
-@PrimaryComponentFailureNetworkEvent
-@SecondaryComponentFailureNetworkEvent
-@ServiceInformationAvailable
-@SingleCustomer
-@UpdateServiceEvent
-Scenario Outline: A failing device associated with more than one service for a single customer
-Given A router <ServiceSpecCharacteristic.Router-HostName> has failed and raised a Network Event that is available in Netcool
-And this router provides <CustomerFacingService.Id service1> and <CustomerFacingService.Id service2> to customer <Customer.crmId>
-And Resource To Service API has an association from the router to the CFS and Customer
-And Resource To Service API has a dependency from <ResourceFacingService.Id service1> to <ResourceFacingService.Id service2>
-When Impact Server receives this Network Event
-Then the service event api is invoked with a single Service Event
-And the primary service is identified by name <CustomerFacingService.Id service2>
-And the crmId is identified as <Customer.crmId>
-
-Examples:
-| ResourceSpecCharacteristic.Router-HostName | ResourceSpecCharacteristic.Router-Type |  CustomerFacingService.Id service1 | CustomerFacingService.Id servivce2 | Customer.crmId Cust2 |
-| Host123                                    | Huawei  HG659                          |  WAN1                              | LAN1                               | Customer1            |
-
-
-@IndependentServices
-@CreateServiceEvent
-@UpdateServiceEvent
-Scenario Outline: A failing device associated with more than one service for a single customer and each service is independent (no CFS interdependencies)
-Given A router <ServiceSpecCharacteristic.Router-HostName> has failed and raised a Network Event that is available in Netcool
-And this router provides <CustomerFacingService.Id service1> and the independent service <CustomerFacingService.Id serviceN> to customer <Customer.crmId>
-And Resource To Service API has an association from the router to the CFS and Customer
-And Resource To Service API has returned dependencies that dont overlap
-When impact server receives this Network Event
-Then the service event api is updated
-And the both services are identified as primary services
-
-
-Examples:
-| ResourceSpecCharacteristic.Router-HostName | ResourceSpecCharacteristic.Router-Type |  CustomerFacingService.Id service1 | CustomerFacingService.Id servivce2 | Customer.crmId Cust2 |
-| Host123                                    | Huawei  HG659                          |  WAN1                              | LAN2                               | Customer1            |
-
+@FailureComponent:Primary
+@PreviousServiceEvent:False
+@ServiceEvent:Created
+Scenario Outline: When an Incident is created, the Incident Id is reflect into the synthetic Service Event
+Given A Service Event has been raised via the Service Event API
+When impact server receives an Incident identifier from AO
+Then the Service Event is updated with the Incident identifier
 
 
 @Exception
-@CreateServiceEvent
-@UpdateServiceEvent
+@PreviousServiceEvent:False
+@ServiceEvent:Created
+@ServiceEvent:Updated
+@ImpactedCustomers:Single
 Scenario Outline: The Resource To Service API is offline but an Service Event is still created.
 Given A router has failed and raised a Network Event that is available in Netcool
 And this is the first network event corresponding to this resource

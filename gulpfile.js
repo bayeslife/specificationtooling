@@ -20,6 +20,7 @@ var concat = require('gulp-concat');
 var readFiles = require('read-vinyl-file-stream');
 
 var extractor = require("./src/main/js/extractor.js");
+var expander = require("./src/main/js/expander.js");
 
 var fs = require("fs");
 
@@ -33,20 +34,37 @@ function getArrayOfFeatureFolders(dir) {
     });
 }
 
-gulp.task('extract', [], function() {  
+gulp.task('extract', [], function() {
   var featureFolders = getArrayOfFeatureFolders("features");
-  var tasks = featureFolders.map(function(featureFolder) {    
+  var tasks = featureFolders.map(function(featureFolder) {
     var metadata = {};
     return gulp.src("features/"+featureFolder+"/*.feature")
       .pipe(readFiles(function(content,file,stream,cb){
         debug(file.path);
         extractor.extract(metadata,content)
-        
+
         cb(null,"");
       }))
       .pipe(concat(featureFolder+".json"))
       .pipe(extractor.report(metadata))
-      .pipe(gulp.dest('build/normalized/'))      
+      .pipe(gulp.dest('build/normalized/'))
+  })
+});
+
+gulp.task('expand', [], function() {
+  var featureFolders = getArrayOfFeatureFolders("features");
+  var tasks = featureFolders.map(function(featureFolder) {
+    var metadata = {};
+    var expanded = "";
+    return gulp.src("features/"+featureFolder+"/*.feature")
+      .pipe(readFiles(function(content,file,stream,cb){
+        debug(file.path);
+        expanded = expander.expand(metadata,content)
+        cb(null,expanded);
+      }))
+      .pipe(concat(featureFolder+".txt"))
+      
+      .pipe(gulp.dest('build/normalized/'))
   })
 });
 
@@ -55,4 +73,3 @@ gulp.task('clean', [], function() {
   console.log("Clean all files in build folder");
   return gulp.src("build/*", { read: false }).pipe(clean());
 });
-
